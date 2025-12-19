@@ -8,6 +8,7 @@ dotenv.config();
 
 const allowedOrigins = [
   'http://localhost:3000',       // React/Vue dev сервер
+  'http://localhost:3001',
   // Добавьте сюда реальные домены для тестирования
 ];
 
@@ -15,7 +16,6 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const amoCrmService: AmoCRMService = new AmoCRMService();
 
-// Middleware
 app.use(cors({
   origin: function (origin, callback) {
     // Разрешить запросы без origin (например, из Postman)
@@ -66,7 +66,7 @@ app.get('/', (req, res) => {
     status: 'running',
     version: '1.0.0',
     endpoints: {
-      createLead: 'POST /api/leads',
+      createLead: 'POST /api/amo-crm',
       health: 'GET /health'
     }
   });
@@ -82,12 +82,21 @@ app.get('/health', (req, res) => {
 });
 
 // Основной endpoint для создания лида
-app.post('/api/amo-crm', async (req, res) => {
+app.post('/api/amo-crm', apiKeyMiddleware, async (req, res) => {
   try {
     const site_id = (req as any).siteId;
     const formData = req.body; // Только данные формы
     
+    
     // Валидация
+    
+    // Проверка site_id
+    if (!site_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Site ID is required'
+      });
+    }
     
     const validation = validateFormData(formData);
     if (!validation.isValid) {
