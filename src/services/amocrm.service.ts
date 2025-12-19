@@ -6,11 +6,10 @@ export interface IFormData {
   email?: string;
   company?: string;
   message?: string;
-  task?: string;
 }
 
 export class AmoCRMService {
-  async createContact(formData: IFormData, siteId: string): Promise<any> {
+  async createContactAndLead(formData: IFormData, siteId: string): Promise<any> {
     try {
       const client = await getAmoCRMClient();
 
@@ -19,7 +18,7 @@ export class AmoCRMService {
       const nameParts = formData.name.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
-
+      
       // Создаём новый экземпляр контакта
       const newContact = new client.Contact();
 
@@ -28,12 +27,11 @@ export class AmoCRMService {
       newContact.last_name = lastName;
       
       // Формируем массив пользовательских полей в правильном формате AmoCRM
-      const customFields: any[] = [];
+      const customContactFields: any[] = [];
       
       // Добавляем email, если он указан
       if (formData.email) {
-        console.log(`📧 Добавляем email поле: ${formData.email}`);
-        customFields.push({
+        customContactFields.push({
           field_code: 'EMAIL', // Используем код поля вместо ID
           values: [{
             value: formData.email
@@ -43,8 +41,7 @@ export class AmoCRMService {
       
       // Добавляем телефон, если он указан
       if (formData.phone) {
-        console.log(`📱 Добавляем phone поле: ${formData.phone}`);
-        customFields.push({
+        customContactFields.push({
           field_code: 'PHONE', // Используем код поля вместо ID
           values: [{
             value: formData.phone
@@ -53,9 +50,13 @@ export class AmoCRMService {
       }
       
       // Добавляем компанию, если она указана
-      if (formData.company) {
-        customFields.push({
-          field_id: 1053499,
+      if (formData.company && process.env.AMO_CRM_COMPANY_FIELD_ID) {
+        const companyFieldId = parseInt(process.env.AMO_CRM_COMPANY_FIELD_ID, 10);
+        if (isNaN(companyFieldId)) {
+          throw new Error('AMO_CRM_COMPANY_FIELD_ID must be a valid number');
+        }
+        customContactFields.push({
+          field_id: companyFieldId,
           values: [{
             value: formData.company
           }]
@@ -63,99 +64,53 @@ export class AmoCRMService {
       }
       
       // Устанавливаем пользовательские поля
-      if (customFields.length > 0) {
-        newContact.custom_fields_values = customFields;
-        // newLead.custom_fields_values = customFields;
+      if (customContactFields.length > 0) {
+        newContact.custom_fields_values = customContactFields;
       }
 
       // Сохраняем контакт в AmoCRM
       await newContact.save();
 
-      // Возвращаем успешный результат
-      return {
-        success: true,
-        contactId: newContact.id,
-        message: `Контакт успешно создан в AmoCRM`
-      };
-
-    } catch (error: any) {
-      console.error('❌ Ошибка в AmoCRMService:', error);
-      return {
-        success: false,
-        error: error.message || 'Неизвестная ошибка при создании в AmoCRM',
-        // Можно добавить больше деталей для отладки
-        details: error.response?.data || null
-      };
-    }
-  }
-  async createLead(formData: IFormData, siteId: string): Promise<any> {
-    try {
-      const client = await getAmoCRMClient();
-
       // СОЗДАНИЕ И СОХРАНЕНИЕ СДЕЛКИ (по примеру из документации)
       const newLead = new client.Lead({
-          name: formData.name
+          name: `Заявка с сайта ${siteId}`
       });
       newLead.price = 0;
-      
-      // Формируем массив пользовательских полей в правильном формате AmoCRM
-      const customFields: any[] = [];
-      
-      // Добавляем email, если он указан
-      if (formData.email) {
-        console.log(`📧 Добавляем email поле: ${formData.email}`);
-        customFields.push({
-          field_code: 'EMAIL', // Используем код поля вместо ID
-          values: [{
-            value: formData.email
-          }]
-        });
-      }
-      
-      // Добавляем телефон, если он указан
-      if (formData.phone) {
-        console.log(`📱 Добавляем phone поле: ${formData.phone}`);
-        customFields.push({
-          field_code: 'PHONE', // Используем код поля вместо ID
-          values: [{
-            value: formData.phone
-          }]
-        });
-      }
-      
-      // Добавляем компанию, если она указана
-      if (formData.company) {
-        customFields.push({
-          field_id: 1053499,
-          values: [{
-            value: formData.company
-          }]
-        });
-      }
+
+      newLead.embeddedContacts.add([
+        newContact
+      ]);
+
+      const customLeadFields: any[] = [];
 
       // Добавляем сообщение, если есть
-      if (formData.message) {
-        customFields.push({
-          field_id: 1053503,
+      if (formData.message && process.env.AMO_CRM_MESSAGE_FIELD_ID) {
+        const messageFieldId = parseInt(process.env.AMO_CRM_MESSAGE_FIELD_ID, 10);
+        if (isNaN(messageFieldId)) {
+          throw new Error('AMO_CRM_MESSAGE_FIELD_ID must be a valid number');
+        }
+        customLeadFields.push({
+          field_id: messageFieldId,
           values: [{
             value: formData.message
           }]
         });
       }
-      
+
       // Устанавливаем пользовательские поля
-      if (customFields.length > 0) {
-        newLead.custom_fields_values = customFields;
+      if (customContactFields.length > 0) {
+        newLead.custom_fields_values = customLeadFields;
       }
 
-      // Сохраняем контакт в AmoCRM
+      // Сохраняем сделку в AmoCRM
       await newLead.save();
 
       // Возвращаем успешный результат
       return {
         success: true,
-        newLeadId: newLead.id,
-        message: `Сделка успешно создана в AmoCRM`
+        contactId: newContact.id,
+        //leadId: newLead.id,
+        message: `Контакт и сделка успешно созданы в AmoCRM`
       };
 
     } catch (error: any) {

@@ -65,8 +65,7 @@ app.post('/api/amo-crm', async (req, res) => {
     }
     
     // Создание в AmoCRM
-    // const result = await (amoCrmService as AmoCRMService).createContact(formData as IFormData, site_id);
-    const result = await (amoCrmService as AmoCRMService).createLead(formData as IFormData, site_id);
+    const result = await (amoCrmService as AmoCRMService).createContactAndLead(formData as IFormData, site_id);
     
     if (result.success) {
       return res.json(result);
