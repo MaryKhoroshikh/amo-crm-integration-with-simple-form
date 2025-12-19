@@ -15,27 +15,18 @@ const amoCrmClient = new Client({
       client_id: process.env.AMO_CRM_CLIENT_ID || '', // ID интеграции
       client_secret: process.env.AMO_CRM_CLIENT_SECRET || '', // Секретный ключ
       redirect_uri: process.env.AMO_CRM_REDIRECT_URI || '', // Ссылка для перенаправления
-      bearer: 'ltsToken', // долгосрочный токен
+      bearer: process.env.AMO_CRM_CLIENT_LTSTOKEN || '', // долгосрочный токен
     },
 });
 
 // Основная функция для получения готового к работе клиента
 export async function getAmoCRMClient() {
-  // Здесь будет логика получения/обновления токенов
-  // Пока просто возвращаем клиента
-
-  const result = await amoCrmClient.request.make('GET', '/api/v4/account');
-    // возвращает тело ответа 
-    console.log(result.data);
-    /* 
-    Возвращает расширенную информацию об ответе - 
-    экземпляр http.IncomingMessage:
-    https://nodejs.org/api/http.html#class-httpincomingmessage
-    */
-    console.log(result.response);
-    // к примеру, HTTP-статус ответа операции
-    console.log(result.response.statusCode);
-    return amoCrmClient;
+  // Здесь может быть логика получения/обновления токенов
+  // так как используем долгосрочный токен просто возвращаем клиента
+  const result = await amoCrmClient.request.make('GET', '/api/v4/account');    
+  // HTTP-статус ответа операции
+  console.log(result.response.statusCode);
+  return amoCrmClient;
 }
 
 export default amoCrmClient;

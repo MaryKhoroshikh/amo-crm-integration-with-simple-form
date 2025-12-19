@@ -2,13 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { AmoCRMService, IFormData } from './services/amocrm.service';
-import { validateFormData } from './utils/validators';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const amoCrmService = new AmoCRMService();
+const amoCrmService: AmoCRMService = new AmoCRMService();
 
 // Middleware
 app.use(cors());
@@ -52,18 +51,11 @@ app.get('/health', (req, res) => {
 });
 
 // Основной endpoint для создания лида
-app.post('/api/leads', async (req, res) => {
+app.post('/api/amo-crm', async (req, res) => {
   try {
     const { site_id, ...formData } = req.body;
     
     // Валидация
-    const validation = validateFormData(formData);
-    if (!validation.isValid) {
-      return res.status(400).json({
-        success: false,
-        errors: validation.errors
-      });
-    }
     
     if (!site_id) {
       return res.status(400).json({
@@ -73,7 +65,8 @@ app.post('/api/leads', async (req, res) => {
     }
     
     // Создание в AmoCRM
-    const result = await amoCrmService.createContactAndLead(formData as IFormData, site_id);
+    // const result = await (amoCrmService as AmoCRMService).createContact(formData as IFormData, site_id);
+    const result = await (amoCrmService as AmoCRMService).createLead(formData as IFormData, site_id);
     
     if (result.success) {
       return res.json(result);
@@ -92,13 +85,13 @@ app.post('/api/leads', async (req, res) => {
 });
 
 // Endpoint для авторизации в AmoCRM (используется один раз для получения токенов)
-app.get('/auth', (req, res) => {
-  // Этот endpoint нужно будет доработать после настройки OAuth
-  res.json({
-    message: 'Для авторизации перейдите по ссылке',
-    authUrl: 'ЗДЕСЬ_БУДЕТ_ССЫЛКА' // Замените на реальную ссылку из amocrm.config.ts
-  });
-});
+// app.get('/auth', (req, res) => {
+//   // Этот endpoint нужно будет доработать после настройки OAuth
+//   res.json({
+//     message: 'Для авторизации перейдите по ссылке',
+//     authUrl: 'ЗДЕСЬ_БУДЕТ_ССЫЛКА' // Замените на реальную ссылку из amocrm.config.ts
+//   });
+// });
 
 // Запуск сервера
 app.listen(PORT, () => {
