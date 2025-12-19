@@ -2,31 +2,62 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { AmoCRMService, IFormData } from './services/amocrm.service';
+import { validateFormData } from './utils/validators';
 
 dotenv.config();
+
+const allowedOrigins = [
+  'http://localhost:3000',       // React/Vue dev сервер
+  // Добавьте сюда реальные домены для тестирования
+];
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const amoCrmService: AmoCRMService = new AmoCRMService();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    // Разрешить запросы без origin (например, из Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`Запрос с запрещенного origin: ${origin}`);
+      callback(new Error('CORS политика не разрешает запрос с этого домена'));
+    }
+  },
+  credentials: false
+}));
 app.use(express.json());
 
 // Middleware для проверки API ключа
-// const apiKeyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-//   const apiKey = req.headers['x-api-key'] as string;
-//   const validKeys = process.env.API_KEYS?.split(',') || [];
+const apiKeyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const apiKey = req.headers['x-api-key'] as string;
+  const validKeys = process.env.API_KEYS?.split(',') || [];
   
-//   if (!apiKey || !validKeys.includes(apiKey)) {
-//     return res.status(401).json({
-//       success: false,
-//       error: 'Неверный или отсутствующий API ключ'
-//     });
-//   }
+  if (!apiKey || !validKeys.includes(apiKey)) {
+    return res.status(401).json({
+      success: false,
+      error: 'Неверный API ключ'
+    });
+  }
   
-//   next();
-// };
+  // Определяем, с какого сайта запрос
+  let siteId = '';
+  if (apiKey === process.env.SITE1_API_KEY) {
+    siteId = process.env.SITE1_ID!;
+  } else if (apiKey === process.env.SITE2_API_KEY) {
+    siteId = process.env.SITE2_ID!;
+  } else if (apiKey === process.env.SITE2_API_KEY) {
+    siteId = process.env.SITE2_ID!;
+  }
+  
+  // Сохраняем siteId для использования в обработчике
+  (req as any).siteId = siteId;
+  next();
+};
 
 // Тестовый endpoint
 app.get('/', (req, res) => {
@@ -53,14 +84,16 @@ app.get('/health', (req, res) => {
 // Основной endpoint для создания лида
 app.post('/api/amo-crm', async (req, res) => {
   try {
-    const { site_id, ...formData } = req.body;
+    const site_id = (req as any).siteId;
+    const formData = req.body; // Только данные формы
     
     // Валидация
     
-    if (!site_id) {
+    const validation = validateFormData(formData);
+    if (!validation.isValid) {
       return res.status(400).json({
         success: false,
-        error: 'Параметр site_id обязателен'
+        errors: validation.errors
       });
     }
     
